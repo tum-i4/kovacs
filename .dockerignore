@@ -1,0 +1,15 @@
+Dockerfile
+config*
+user-management*
+extractDataFromLog*
+listener/storage*
+requester/storage*
+requester/size.csv
+*/InverseTransparency.log*
+
+*/.*
+*/*.md*
+*/_identity.json*
+*/_privateKey.pem*
+*.*
+./setup

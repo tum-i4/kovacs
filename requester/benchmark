@@ -1,0 +1,50 @@
+#!/bin/sh
+
+if [ $# -lt 1 ]; then
+	echo "Pass max amount"
+	echo "Exiting"
+	exit 1
+fi
+
+if [ $1 -lt 2 ]; then
+	echo "Max amount is too small"
+	echo "Exiting"
+	exit 1
+fi
+
+additionalFlags=""
+for arg in "$@"
+do
+	if [ "$arg" = "fakeChatter" ]; then
+		echo "Enabled fake chatter"
+	    additionalFlags="$additionalFlags -fakeChatter=true"
+	elif [ "$arg" = "cpu" ]; then
+		echo "Enabled cpu profiling"
+		additionalFlags="$additionalFlags -cpuProf=true"
+	elif [ "$arg" = "mem" ]; then
+		echo "Enabled memory profiling"
+		additionalFlags="$additionalFlags -memProf=true"
+	fi
+done
+
+echo "Running requester for $1 times"
+
+for i in `seq 1 $1`
+do
+	printf "Run $i: "
+
+	datum="Datum $i"
+	./requester -ssoid "user1@example.com" -datum "$datum" -justification "Justification for $datum" $additionalFlags >/dev/null
+	if [ $? -ne 0 ]; then
+		echo "Exit code indicates failure"
+		exit 1
+	fi
+
+	grep -q "Successfully completed; Message is: 'Requested datum: $datum'" InverseTransparency.log
+	if [ $? -ne 0 ]; then
+		echo "grep did not find the expected message '$datum'"
+		exit 1
+	fi
+
+	echo "Done"
+done

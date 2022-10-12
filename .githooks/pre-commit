@@ -1,0 +1,65 @@
+#!/bin/bash
+
+pushd () {
+    command pushd "$@" > /dev/null
+}
+
+STAGED_GO_FILES=$(git diff --staged --name-only | grep "\.go$")
+
+
+if [[ "$STAGED_GO_FILES" = "" ]]; then
+	echo "No go files were added to the commit"
+	exit 0
+fi
+
+
+for FILE in $STAGED_GO_FILES
+do
+	# Clean up code
+	go fmt $FILE
+
+	# Commit any changes
+	git add $FILE
+done
+
+PASS=true
+
+AFFECTED_DIRS=("listener" "node" "requester" "verifier" "query" "passwordGenerationTimer")
+for BUILD_PATH in ${AFFECTED_DIRS[@]}; do
+	printf "Attempting  to build '$BUILD_PATH': "
+
+	pushd $BUILD_PATH
+	go build -o $BUILD_PATH . > /dev/null 2>&1
+		
+	if [ $? -ne 0 ]; then
+		printf "\033[0;31mFAILED\033[0m\n"
+		PASS=false
+	else
+		printf "\033[0;32mPASSED\033[0m\n"
+
+		# Delete executables
+		rm $BUILD_PATH
+	fi
+
+	printf "Running linter on '$BUILD_PATH': "
+	golangci-lint run
+	if [ $? -ne 0 ]; then
+		printf "\033[0;31mFAILED\033[0m\n"
+                PASS=false
+	else
+                printf "\033[0;32mPASSED\033[0m\n"
+        fi
+
+	pushd
+done
+
+echo
+if ! $PASS; then
+	printf "Commit \033[0;31mfailed\033[0m\n"
+	exit 1
+else
+	printf "Commit \033[0;32mpassed\033[0m\n"
+	exit 0
+fi
+
+exit 0

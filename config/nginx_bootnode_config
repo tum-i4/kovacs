@@ -1,0 +1,9 @@
+server {
+    listen 30301;
+    listen [::]:30301;
+    server_name geth.bootnode;
+    ssl off;
+    location / {
+        proxy_pass http://127.0.0.1:30301;
+    }
+}

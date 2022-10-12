@@ -1,0 +1,44 @@
+#!/bin/bash
+
+KEYFILE_NAME="bootnode.key"
+
+function createKeyfile() {
+	local INPUT
+
+	# Check if a key exists
+	if [ -f "./$KEYFILE_NAME" ]; then
+		read -p "There already exists a key. Do you want to continue (y/n)?: " INPUT
+		if [ "$INPUT" != "y" ]; then
+			echo "Exiting without creating a new key file"
+			exit 1
+		fi
+	fi
+
+	if ! bootnode -genkey "$KEYFILE_NAME"; then
+		exit 1
+	fi
+}
+
+function startBootnode() {
+	if ! bootnode -nodekeyhex "$(cat $KEYFILE_NAME)"; then
+		exit 1
+	fi
+}
+
+if [ $# -eq 0 ]; then
+	echo "Pass a parameter"
+	echo "Valid parameter are 'create', 'start' or 'both'"
+	exit 64
+fi
+
+if [ "$1" = "create" ]; then
+	createKeyfile
+elif [ "$1" = "start" ]; then
+	startBootnode
+elif [ "$1" = "both" ]; then
+	createKeyfile
+	startBootnode
+else
+	echo "Invalid input given: '$1'"
+	exit 64
+fi
