@@ -1,0 +1,38 @@
+#!/bin/sh
+
+stepSize=25
+
+echo "This script should be run on 'inverse_transparency_node_1' for a correct result"
+
+echo "Log amount,Blockchain size (kb), SQLite size (kb)" >> size.csv
+
+output_to_file() {
+	i=$1
+	gethSize="$(du -ks ../geth/ | cut -f1)"
+	databaseSize="0"
+	if [ -f "../listener/database.db" ]; then
+		databaseSize="$(du -ks ../listener/database.db | cut -f1)"
+	fi
+
+	echo "$((i*stepSize)),${gethSize},${databaseSize}" >> size.csv
+}
+
+output_to_file 0
+
+for i in `seq 1 100`
+do
+	./benchmark "$stepSize"
+	if [ $? -ne 0 ]; then
+		echo "Benchmark return code inicates failure."
+		echo "Exiting"
+		exit 1
+	fi
+	
+	# Wait for blocks to be published
+	sleep 4s
+
+	# Write the size of geth and the SQLite db to a file
+	output_to_file $i
+	# echo "$((i*stepSize)): $(du -hs ../geth/); $(du -hs ../listener/database.db)" >> size
+done
+

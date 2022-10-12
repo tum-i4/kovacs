@@ -1,0 +1,37 @@
+#!/bin/bash
+
+PEER_DIR="dataDir"
+
+function createPeer() {
+	if [ -d "$PEER_DIR" ]; then
+		echo "Directory $PEER_DIR already exists!"
+		echo "Exiting"
+		exit 1
+	fi
+
+	if ! geth init --datadir "$PEER_DIR" p3_ethereum.json &>/dev/null; then
+		echo "Could not init"
+		exit 1
+	fi
+}
+
+function startPeer() {
+	local peerID="$PEER_DIR"
+
+	if [ ! -d "$peerID" ]; then
+		echo "Directory $peerID does not exist"
+		echo "Exiting"
+		exit 1
+	fi
+
+	local chainID
+	chainID=$(grep "chainId" p3_ethereum.json)	# Get the chain ID from the genesis file
+	chainID="${chainID/\"chainId\":/""}"		# Remove chainId
+	chainID="${chainID/,/""}"					# Remove comma
+	chainID=${chainID// /}						# Remove spaces
+
+	geth --allow-insecure-unlock --datadir $peerID/ --networkid $chainID --port 30401 --syncmode full --http --http.port 3334 --http.api personal,eth,net,miner --bootnodes "$BOOTNODE_ENODE" 2>peer.log &
+}
+
+createPeer 1
+startPeer 1

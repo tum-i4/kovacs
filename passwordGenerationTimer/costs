@@ -1,0 +1,215 @@
+Running in a docker container with 4 other containers that are idle
+
+Amount of repetitions: 10
+Cost: 4
+Run 0: 1.083461ms
+Run 1: 1.003828ms
+Run 2: 1.004528ms
+Run 3: 996.008µs
+Run 4: 1.029518ms
+Run 5: 1.017514ms
+Run 6: 992.214µs
+Run 7: 1.038949ms
+Run 8: 1.119553ms
+Run 9: 1.066721ms
+Average duration: 1.035229ms
+======
+Cost: 5
+Run 0: 2.057543ms
+Run 1: 1.97861ms
+Run 2: 1.96952ms
+Run 3: 1.936081ms
+Run 4: 1.942509ms
+Run 5: 16.187587ms
+Run 6: 1.967707ms
+Run 7: 36.33645ms
+Run 8: 1.957436ms
+Run 9: 1.942008ms
+Average duration: 6.827545ms
+======
+Cost: 6
+Run 0: 35.81592ms
+Run 1: 3.813583ms
+Run 2: 18.270851ms
+Run 3: 3.953126ms
+Run 4: 3.817348ms
+Run 5: 3.807195ms
+Run 6: 3.971097ms
+Run 7: 3.7945ms
+Run 8: 7.041479ms
+Run 9: 26.941761ms
+Average duration: 11.122686ms
+======
+Cost: 7
+Run 0: 41.112643ms
+Run 1: 38.147705ms
+Run 2: 52.485613ms
+Run 3: 23.94001ms
+Run 4: 28.034954ms
+Run 5: 12.744908ms
+Run 6: 40.706217ms
+Run 7: 38.794454ms
+Run 8: 23.56391ms
+Run 9: 16.346043ms
+Average duration: 31.587645ms
+======
+Cost: 8
+Run 0: 35.200618ms
+Run 1: 34.982313ms
+Run 2: 36.378251ms
+Run 3: 66.962533ms
+Run 4: 65.48897ms
+Run 5: 72.984938ms
+Run 6: 86.994583ms
+Run 7: 76.152456ms
+Run 8: 81.129302ms
+Run 9: 97.631189ms
+Average duration: 65.390515ms
+======
+Cost: 9
+Run 0: 151.060629ms
+Run 1: 156.324526ms
+Run 2: 187.757842ms
+Run 3: 165.990096ms
+Run 4: 210.832123ms
+Run 5: 198.530458ms
+Run 6: 184.629209ms
+Run 7: 188.465938ms
+Run 8: 192.72713ms
+Run 9: 180.997839ms
+Average duration: 181.731579ms
+======
+Cost: 10
+Run 0: 354.808876ms
+Run 1: 349.421096ms
+Run 2: 363.200125ms
+Run 3: 341.06401ms
+Run 4: 248.585792ms
+Run 5: 278.419171ms
+Run 6: 331.870765ms
+Run 7: 292.290821ms
+Run 8: 281.659555ms
+Run 9: 298.273811ms
+Average duration: 313.959402ms
+======
+Cost: 11
+Run 0: 639.355778ms
+Run 1: 503.021855ms
+Run 2: 449.709425ms
+Run 3: 536.041619ms
+Run 4: 659.634598ms
+Run 5: 576.157162ms
+Run 6: 759.493878ms
+Run 7: 763.625196ms
+Run 8: 779.258253ms
+Run 9: 636.736475ms
+Average duration: 630.303423ms
+======
+Cost: 12
+Run 0: 1.370423607s
+Run 1: 1.380238769s
+Run 2: 1.299806402s
+Run 3: 1.399757718s
+Run 4: 1.129623375s
+Run 5: 772.900473ms
+Run 6: 903.909863ms
+Run 7: 1.057023114s
+Run 8: 1.2857824s
+Run 9: 1.503129726s
+Average duration: 1.210259544s
+======
+Cost: 13
+Run 0: 2.880874403s
+Run 1: 2.707986843s
+Run 2: 2.775449197s
+Run 3: 2.562369407s
+Run 4: 3.012529775s
+Run 5: 2.983263578s
+Run 6: 2.866427678s
+Run 7: 2.771440617s
+Run 8: 2.794996887s
+Run 9: 2.794547971s
+Average duration: 2.814988635s
+======
+Cost: 14
+Run 0: 6.25794217s
+Run 1: 6.03661135s
+Run 2: 5.494972789s
+Run 3: 5.027389014s
+Run 4: 5.239210786s
+Run 5: 5.381900262s
+Run 6: 5.275991884s
+Run 7: 5.656991658s
+Run 8: 5.738556089s
+Run 9: 3.883018897s
+Average duration: 5.399258489s
+======
+Cost: 15
+Run 0: 10.564799059s
+Run 1: 11.105761974s
+Run 2: 9.676902586s
+Run 3: 11.292024049s
+Run 4: 11.114222698s
+Run 5: 11.196225436s
+Run 6: 10.861201309s
+Run 7: 9.469093247s
+Run 8: 8.974234395s
+Run 9: 10.904042747s
+Average duration: 10.51585075s
+======
+Cost: 16
+Run 0: 21.777044393s
+Run 1: 11.553246586s
+Run 2: 3.474699263s
+Run 3: 3.424210662s
+Run 4: 3.420520732s
+Run 5: 3.425217926s
+Run 6: 3.415127545s
+Run 7: 3.411890592s
+Run 8: 3.408502628s
+Run 9: 3.410620781s
+Average duration: 6.07210811s
+======
+Cost: 17
+Run 0: 6.824145763s
+Run 1: 6.823682901s
+Run 2: 6.834657321s
+Run 3: 6.818231524s
+Run 4: 6.801127679s
+Run 5: 6.796179919s
+Run 6: 6.793055293s
+Run 7: 6.788706645s
+Run 8: 6.787683731s
+Run 9: 6.796074518s
+Average duration: 6.806354529s
+======
+Cost: 18
+Run 0: 13.595982505s
+Run 1: 13.624112839s
+Run 2: 13.593625477s
+Run 3: 13.575373565s
+Run 4: 13.602162274s
+Run 5: 13.617821049s
+Run 6: 13.624861233s
+Run 7: 13.592122201s
+Run 8: 13.588678594s
+Run 9: 13.579829145s
+Average duration: 13.599456888s
+======
+Cost: 19
+Run 0: 27.227143297s
+Run 1: 27.160093504s
+Run 2: 27.148902022s
+Run 3: 27.245313621s
+Run 4: 27.229674297s
+Run 5: 27.180208202s
+Run 6: 27.184117143s
+Run 7: 27.19125536s
+Run 8: 27.23516947s
+Run 9: 27.359778439s
+Average duration: 27.216165535s
+======
+Cost: 20
+Run 0: 54.554498265s
+Run 1: 54.648405134s
+Run 2: 54.476194026s

@@ -1,0 +1,77 @@
+# Using different bcrypt costs on an AMD Ryzen 2700X
+
+Password: secret1
+Cost: 4
+Average duration: 516.95µs
+-----
+Cost: 5
+Average duration: 783.55µs
+-----
+Cost: 6
+Average duration: 1.8213ms
+-----
+Cost: 7
+Average duration: 3.72285ms
+-----
+Cost: 8
+Average duration: 7.0263ms
+-----
+Cost: 9
+Average duration: 14.6169ms
+-----
+Cost: 10
+Average duration: 28.4389ms
+-----
+Cost: 11
+Average duration: 57.0169ms
+-----
+Cost: 12
+Average duration: 113.98635ms
+-----
+Cost: 13
+Average duration: 229.11055ms
+-----
+Cost: 14
+Average duration: 460.5074ms
+-----
+Cost: 15
+Average duration: 925.15815ms
+-----
+Cost: 16
+Average duration: 1.85143165s
+-----
+Cost: 17
+Average duration: 3.76270965s
+-----
+Cost: 18
+Average duration: 7.35568665s
+-----
+Cost: 19
+Average duration: 14.7205672s
+-----
+Cost: 20
+Average duration: 29.3472265s
+-----
+Cost: 21
+Average duration: 58.7308913s
+-----
+Cost: 22
+Average duration: 1m57.8212544s
+-----
+Cost: 23
+Average duration: 3m55.3103117s
+-----
+Cost: 24
+Average duration: 7m50.51255415s
+-----
+Cost: 25
+Average duration: 15m45.81348825s
+-----
+Cost: 26
+Average duration: 31m38.81542525s
+-----
+Cost: 27
+Average duration: 1h3m18.36503155s
+-----
+
+Process finished with the exit code -1073741510 (0xC000013A: interrupted by Ctrl+C)

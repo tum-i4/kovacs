@@ -1,0 +1,233 @@
+#!/bin/bash
+
+DOCKER_IMAGE_NAME="inverse_transparency_image"
+DOCKER_CONTAINER_LIMIT=99
+REVOLORI_DEFAULT_ADDR="http://192.168.3.22:5000"
+
+function ask_for_continue {
+	if [ $# -ne 1 ]; then
+		beg="Something"
+	else
+		beg=$1
+	fi
+
+	echo 
+	echo "$beg may have failed, check output"
+	read -p "Do you still want to continue (y/n)? " cont
+	if [ "$cont" != "y" ] && [ "$cont" != "Y" ]; then
+		echo "Exiting"
+		exit 1
+	fi
+}
+
+function append_node_to_compose {
+	if [ $# -ne 1 ]; then
+		echo "append_node_to_compose was not given an ID"
+		echo "Exiting"
+		exit 1
+	fi
+
+	if [ $1 -lt 10 ]; then
+		port="0$1"
+	else
+		port="$1"
+	fi
+
+	cat >> docker-compose.yml<< EOF
+    node_$1:
+        image: $DOCKER_IMAGE_NAME
+        container_name: inverse_transparency_node_$1
+        ports:
+            - "304$port:30401"
+            - "400$port:40000"
+            - "410$port:41000"
+        environment:
+            BOOTNODE_ENODE: \${BOOTNODE_ENODE}
+            REVOLORI_TOKEN: \${REVOLORI_TOKEN_$1}
+            REVOLORI_ADDRESS: \${REVOLORI_ADDRESS}
+            GETH_KEYSTORE_PATH: "/build/geth/dataDir/keystore/"
+EOF
+}
+
+function setupEnvAndCompose {
+	echo "Attempting to set up .env"
+
+	user_number=0
+	if [ $# -ge 1 ]; then
+		user_number=$(($1))
+	else
+		read -p "How many users do you want to create? " user_number
+		user_number=$((user_number)) # This accepts not only numbers but arithmetic operations as well
+	fi
+
+	if [ $user_number -lt 2 ]; then
+		echo "Invalid input!"
+		echo "The entered number must be a valid integer that is bigger than or equal to 2"
+		echo "Exiting"
+		exit 1
+	fi
+
+	if [ $user_number -gt $DOCKER_CONTAINER_LIMIT ]; then
+		echo "This script accepts a maximum of $DOCKER_CONTAINER_LIMIT containers/users"
+		echo "Exiting"
+		exit 1
+	fi
+
+	note="IMPORTANT: Replace 127.0.0.1 in the bootnode's enode with use your network IP!"
+
+	# check if $BOOTNODE_ENODE
+	
+	bootnode_enode=""
+	if [ -z ${BOOTNODE_ENODE+x} ]; then
+		# Env is not set => read it
+		read -p "What is the bootnode's enode? $note " bootnode_enode
+	else
+		# Env is set
+		echo "Bootnode enode was found in env"
+		bootnode_enode="${BOOTNODE_ENODE}"
+
+	fi
+
+	printf "# Geth\nBOOTNODE_ENODE=\"$bootnode_enode\"\n" > .env
+
+	read -p "What is Revolori's IP Address including port and network scheme? Defaults to '$REVOLORI_DEFAULT_ADDR' " revolori_address
+	if [ "$revolori_address" = "" ]; then
+		revolori_address="$REVOLORI_DEFAULT_ADDR"
+	fi
+
+	printf "\n# Revolori\nREVOLORI_ADDRESS=\"$revolori_address\"\n" >> .env
+
+	echo "Almost done"
+
+	# create users
+	echo "Attempting to create $user_number users: "
+	python3 user-management/createUsers.py "$user_number" "$revolori_address"
+	if [ $? -ne 0 ]; then
+		ask_for_continue "Creating users"
+	fi
+	echo
+
+	printf "Attempting to request tokens: "
+	tokens=()
+	for (( i=0; i < $user_number; i++ )); do
+		token=$(python3 user-management/getToken.py "$i" "$revolori_address")
+		if [ $? -ne 0 ]; then
+			echo "An error occurred when requesting the token for user $i:"
+			echo "$token"
+			exit 1
+		fi
+
+		tokens+=($token)
+	done
+
+	if [ "${#tokens[@]}" -ne "$user_number" ]; then
+		echo 
+		echo "Did not get all reqired tokens"
+		echo "Expected $user_number, got ${#tokens[@]}"
+		echo "Exiting"
+		exit 1
+	fi
+
+	echo "Done"
+
+	echo "Writing tokens to .env"
+
+	printf "\n# Tokens\n" >> .env
+
+	# Write tokens to env
+	for (( i=0; i < ${#tokens[@]}; i++ )); do
+		echo "REVOLORI_TOKEN_$i=\"${tokens[$i]}\"">> .env
+	done
+
+	echo "Done"
+
+
+	# Create docker-compose.yml
+	printf "Attempting to create docker-compose.yml: "
+
+	echo "version: \"3.7\"" > docker-compose.yml
+	echo "" >> docker-compose.yml
+	echo "services:" >> docker-compose.yml
+
+	for (( i=0; i < ${#tokens[@]}; i++ )); do
+		append_node_to_compose $i
+	done
+
+	echo "Done"
+}
+
+
+if [ $# -eq 1 ] && [ $1 = "rebuild" ]; then
+	docker-compose down --remove-orphans
+	docker build . -t $(echo "$DOCKER_IMAGE_NAME")
+
+	if [ $? -eq 0 ]; then
+		docker-compose up -d --build
+		exit 0
+	fi
+
+	exit 1
+fi
+
+echo "This script assumes that:"
+printf "\t- Revolori has been pulled from the latest gabriel/master branch\n"
+printf "\t- Revolori is up and running\n"
+printf "\t- That a bootnode is running\n"
+printf "\t- That nginx has been configured as a proxi for the bootnode. See config/nginx_bootnode for an example\n"
+printf "\t- Go modules are enabled\n"
+echo
+
+read -p "Are all these assumptions true for your system (y/n)? " conf
+if [ "$conf" = "y"  ] || [ "$conf" = "Y"  ]; then
+	echo "Starting setup proccess"
+	echo
+else
+	echo "See README.md on how to set everythin up and come back once it is done"
+	exit 1
+fi
+
+# Stopping exiting containers
+printf "Attemting to stop running containers: "
+ret=$(docker-compose down --remove-orphans)
+if [ $? -ne 0 ]; then
+	echo
+	echo "Could not stop containers:"
+	echo $ret
+	exit 1
+fi
+echo "Done"
+echo
+
+# Check if .env and docker-compose.yml exit
+if [ -f ".env" ] || [ -f "docker-compose.yml" ]; then
+	echo ".env or docker-compose.yml already exists"
+	read -p "Do you want to create new configuration files (y/n)? " cont
+	if [ "$cont" = "y" ] || [ "$cont" = "Y" ]; then
+		setupEnvAndCompose
+	fi
+else
+	setupEnvAndCompose
+fi
+
+echo
+echo "Building the docker image: "
+
+docker build . -t $(echo "$DOCKER_IMAGE_NAME")
+
+if [ $? -ne 0 ]; then
+	echo
+	echo "Docker build failed"
+	echo "This should not have happened"
+	exit 1
+fi
+
+echo
+echo "Setup up successfull"
+
+echo
+read -p "Do you want to run docker-compose up (y/n)? " cont
+if [ "$cont" = "y" ] || [ "$cont" = "Y" ]; then
+	docker-compose up -d --build
+else
+	echo "Run 'docker-compose up -d --build' when you want to start the containers"
+fi

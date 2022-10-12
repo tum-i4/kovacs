@@ -1,0 +1,15 @@
+#!/bin/sh
+
+bench_time=2
+if [ $# -gt 0 ]; then
+	bench_time=$1
+fi
+
+# Copy the database
+cp ../listener/database.db .
+
+go test -bench=. -benchtime="${bench_time}x"
+if [ $? -ne 0 ]; then
+		echo "Exit code indicates failure"
+		exit 1
+fi
