@@ -20,8 +20,8 @@ The easiest way is configuring nginx to be a proxy. An example for this can be f
 
 ## Setup a Revolori instance
 
-- Clone the [toolchain repo](https://gitlab.lrz.de/inv/toolchain)
-- Pull the latest commit from the gabriel/master branch
+- Clone the [toolchain repo](https://github.com/tum-i4/inverse-transparency)
+- Pull the `kovacs` branch
 - Deploy Revolori in production mode as instructed in the README
     - Important: When running ```create-keys``` enter 'y' when asked if you want to create new keys! Otherwise Revolori may be missing the RSA keys which are required for the signing proccess.
 - Setup up nginx to allow network access
