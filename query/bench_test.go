@@ -42,7 +42,7 @@ func BenchmarkQueryEntireSQLiteDB(b *testing.B) {
 
 func BenchmarkSearchSingleLogBlockchain(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		pseudonym, err := _getRandomPseudonym("../listener/storage/")
+		pseudonym, err := _getRandomPseudonym()
 		if err != nil {
 			log.Error.Printf("Could not get random pseudonym: %s", err)
 			b.Errorf("Could not get random pseudonym: %s", err)
@@ -63,7 +63,7 @@ func BenchmarkSearchSingleLogBlockchain(b *testing.B) {
 
 func BenchmarkSearchSingleLogSQLite(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		pseudonym, err := _getRandomPseudonym("../listener/storage/")
+		pseudonym, err := _getRandomPseudonym()
 		if err != nil {
 			log.Error.Printf("Could not get random pseudonym: %s", err)
 			b.Errorf("Could not get random pseudonym: %s", err)
@@ -83,8 +83,8 @@ func BenchmarkSearchSingleLogSQLite(b *testing.B) {
 }
 
 // helper function
-func _getRandomPseudonym(directory string) (string, error) {
-	entries, err := getAllLogs(directory)
+func _getRandomPseudonym() (string, error) {
+	entries, err := getAllLogs("/build/measureStorage/storage/")
 	if err != nil {
 		return "", err
 	}

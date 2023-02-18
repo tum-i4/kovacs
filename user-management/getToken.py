@@ -13,8 +13,8 @@ def login_user(email: str, password: str, url: str) -> bool:
 		'password': password,
 	}
 
-	response_data = make_post_request(url, request_data, debug=False, print_success=False)
-	if response_data is None:
+	response_data, ok = make_post_request(url, request_data, debug=False, print_success=False)
+	if not ok:
 		return False
 
 	try:

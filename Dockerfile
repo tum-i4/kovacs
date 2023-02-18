@@ -1,6 +1,6 @@
 FROM golang:1.17.8-alpine3.15
 
-# Copy Geth
+# Copy Geth config
 COPY geth /build/geth
 RUN chmod +x /build/geth/startGethClient
 
@@ -45,9 +45,14 @@ RUN go build -o listener
 COPY requester /build/requester
 WORKDIR /build/requester/
 RUN chmod +x benchmark
-RUN chmod +x measureBlockchainSize
 RUN go mod download
 RUN go build -o requester
+
+# MeasureSize
+COPY measureStorage /build/measureStorage
+WORKDIR /build/measureStorage
+RUN go mod download
+RUN go build -o measure
 
 # Required by geth
 EXPOSE 30401

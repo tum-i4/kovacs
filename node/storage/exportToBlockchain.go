@@ -21,25 +21,34 @@ type transaction struct {
 	Value string
 }
 
+type BlockchainDurations struct {
+	AccountCreation     time.Duration
+	AccountUnlock       time.Duration
+	Mining              time.Duration
+	TransactionDuration time.Duration
+	TotalDuration       time.Duration
+}
+
 var transactionMutex sync.Mutex
 
-func ExportToBlockchain(justification string, datum string, ownerPublicKey *rsa.PublicKey, consumerPublicKey *rsa.PublicKey) error {
+func ExportToBlockchain(justification string, datum string, ownerPublicKey *rsa.PublicKey, consumerPublicKey *rsa.PublicKey) (*BlockchainDurations, error) {
+	exportStart := time.Now()
 	block, err := createBlockchainPayload(justification, datum, ownerPublicKey, consumerPublicKey)
 	if err != nil {
 		log.Info.Printf("listener/exportToBlockchain - %v", err)
-		return err
+		return nil, err
 	}
 
 	blockBytes, err := json.Marshal(block)
 	if err != nil {
 		log.Info.Printf("listener/exportToBlockchain - Could not marshal the block: %v", err)
-		return err
+		return nil, err
 	}
 
-	return commitToBlockchain(blockBytes)
+	return commitToBlockchain(blockBytes, &exportStart)
 }
 
-func commitToBlockchain(input []byte) error { //nolint:funlen
+func commitToBlockchain(input []byte, exportStart *time.Time) (*BlockchainDurations, error) { //nolint:funlen
 	password := random.String(32)
 
 	// This function is called from a go routine. Mutex is needed to prevent a go routine deleting accounts that could
@@ -51,27 +60,27 @@ func commitToBlockchain(input []byte) error { //nolint:funlen
 	// Create first account
 	firstAccountAddress, err := makeGethRequestString("personal_newAccount", []string{password})
 	if err != nil {
-		return fmt.Errorf("node/commitToBlockchain - Could not create first account: %w", err)
+		return nil, fmt.Errorf("node/commitToBlockchain - Could not create first account: %w", err)
 	}
 	accountCreationDuration := time.Since(accountCreationStart)
 
-	start := time.Now()
+	accountUnlockStart := time.Now()
 	// Unlock the first account which is needed for sending the transaction
 	// This requires the "--allow-insecure-unlock" flag to be set for geth client
 	_, err = makeGethRequestString("personal_unlockAccount", []string{firstAccountAddress, password})
 	if err != nil {
-		return fmt.Errorf("node/commitToBlockchain - Could not unlock account: %w", err)
+		return nil, fmt.Errorf("node/commitToBlockchain - Could not unlock account: %w", err)
 	}
-	accountUnlockDuration := time.Since(start)
+	accountUnlockDuration := time.Since(accountUnlockStart)
 
-	// Send all transactions to the same address, since the from and to are not useful for us
+	// Send all transactions to the same address, since the from and to addresses are not useful for us
 	secondAccountAddress := "0x0000000000000000000000000000000000000000"
 
 	beforeFirstMine := time.Now()
 	// Mine with first account in order to be able to make a transfer
 	err = mine(firstAccountAddress)
 	if err != nil {
-		return fmt.Errorf("node/commitToBlockchain - %w", err)
+		return nil, fmt.Errorf("node/commitToBlockchain - %w", err)
 	}
 	firstMineDuration := time.Since(beforeFirstMine)
 
@@ -86,7 +95,7 @@ func commitToBlockchain(input []byte) error { //nolint:funlen
 
 	_, err = makeGethRequestString("eth_sendTransaction", transactionArray)
 	if err != nil {
-		return fmt.Errorf("node/commitToBlockchain - Could not send transaction: %w", err)
+		return nil, fmt.Errorf("node/commitToBlockchain - Could not send transaction: %w", err)
 	}
 	transactionDuration := time.Since(beforeTransaction)
 
@@ -94,27 +103,23 @@ func commitToBlockchain(input []byte) error { //nolint:funlen
 	// Mine in order to move the transaction from pending to blockchain
 	err = mine(firstAccountAddress)
 	if err != nil {
-		return fmt.Errorf("node/commitToBlockchain - %w", err)
+		return nil, fmt.Errorf("node/commitToBlockchain - %w", err)
 	}
 	secondMineDuration := time.Since(beforeSecondMine)
 
-	log.Info.Printf(""+
-		"Timing export duration"+
-		"\n\tAccount creation: %s"+
-		"\n\tAccount unlock: %s"+
-		"\n\tMining two blocks: %s"+
-		"\n\tTransaction: %s",
-		accountCreationDuration,
-		accountUnlockDuration,
-		firstMineDuration+secondMineDuration,
-		transactionDuration,
-	)
+	durations := BlockchainDurations{
+		TotalDuration:       time.Since(*exportStart),
+		AccountCreation:     accountCreationDuration,
+		AccountUnlock:       accountUnlockDuration,
+		Mining:              firstMineDuration + secondMineDuration,
+		TransactionDuration: transactionDuration,
+	}
 
-	return deleteKeystore()
+	return &durations, deleteKeystore()
 }
 
 func mine(accountAddress string) error {
-	// Set the first account as miner
+	// Set the passed account as miner
 	_, err := makeGethRequestString("miner_setEtherbase", []string{accountAddress})
 	if err != nil {
 		return fmt.Errorf("could not update etherbase: %w", err)

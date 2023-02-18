@@ -56,7 +56,7 @@ func UpdateLog(directories []string, pseudonym string, updatedJustification stri
 		consumerKey = firstMessage.PublicKey
 	}
 
-	err = storage.ExportToBlockchain(updatedJustification, updatedDatum, &ownerKey, &consumerKey)
+	_, err = storage.ExportToBlockchain(updatedJustification, updatedDatum, &ownerKey, &consumerKey)
 	if err != nil {
 		log.Fatalf("UpdateLog - Could not create updated block: %v\n", err)
 	}

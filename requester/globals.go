@@ -5,22 +5,26 @@ import (
 	"time"
 )
 
-// Public keys.
-var revoloriPublicKey rsa.PublicKey
-var globalPrivateKey rsa.PrivateKey
+const (
+	// Connection search time.
+	maxSearchTime          = 30 * time.Second // Avg. search time when using fake chatter is 15 seconds. Adding 15 seconds as overhead.
+	minFakeConnectionCount = 5
+)
 
-var realDone = make(chan returnValue, 1)
-var fakeDone = make(chan bool, 1)
+var (
+	// Public keys.
+	revoloriPublicKey rsa.PublicKey
+	globalPrivateKey  rsa.PrivateKey
 
-// peer search.
-var foundCorrectPeer = false
+	// Channels.
+	realDone       = make(chan returnValue, 1)
+	fakeDone       = make(chan bool, 1)
+	exchangeFailed = make(chan bool, 1)
 
-// fake chatter.
-var fakeConnectionsAmount int32 = 0 //nolint: revive
+	// peer search.
+	maxRetries       = 20
+	foundCorrectPeer = false
 
-// Connection search time.
-const maxSearchTime = 90 * time.Second // Max search time when using fake chatter is 63 seconds. Adding 27 seconds as overhead.
-const minFakeConnectionCount = 5
-
-var terminationChanceInPercent int32 = 5
-var terminationIncreaseInPercent int32 = 5
+	// fake chatter.
+	fakeConnectionsAmount int32 = 0 //nolint: revive
+)

@@ -31,18 +31,12 @@ func streamHandler(rw *bufio.ReadWriter, connectionID int64) {
 	lastTimeStamp := start.Unix()
 	// Used to store all signed messages
 	signedMessages := make([]p2p.SignedMessage, 0)
+	// The non-repudiation requirement will be loaded when we know that the exchange is real
+	var requirement nP.NonRepudiationRequirement
 
-	// Get a non repudiation requirement needed for the repetition amount, RSA keys and encryption
-	requirement, err := nP.GenerateNonRepudiationRequirement()
-	if err != nil {
-		log.Error.Printf("(%d) listener/streamHandler - Could not generate requirement: %v\n", connectionID, err)
-		return
-	}
-
-	privateKey := requirement.GetPrivateKey()
-
+	idVerificationStart := time.Now()
 	// Send own identity card
-	err = p2p.SendSignedIdentityCard(ownSignedIdentityCard, rw)
+	err := p2p.SendSignedIdentityCard(ownSignedIdentityCard, rw)
 	if err != nil {
 		log.Error.Printf("(%d) listener/streamHandler - Could not send identity card: %v\n", connectionCount, err)
 		return
@@ -56,7 +50,9 @@ func streamHandler(rw *bufio.ReadWriter, connectionID int64) {
 	}
 	signedMessages = append(signedMessages, signedIdentityCard)
 	// Identity verification is complete
+	idVerificationDuration := time.Since(idVerificationStart)
 
+	newUsageStart := time.Now()
 	// Receive first message with included datum request
 	var firstMessageRequest p2p.FirstMessage
 	signedMessage, err := p2p.ReceiveAndVerifyFirstMessage(rw, &identityCard.PublicKey, &firstMessageRequest, isFakeChatter)
@@ -84,9 +80,22 @@ func streamHandler(rw *bufio.ReadWriter, connectionID int64) {
 	var requestedDatum string
 	if isFakeChatter {
 		requestedDatum = random.String(random.PositiveIntFromRange(64, 512))
+
+		requirement, err = nP.FakeChatterNonRepudiationRequirement()
+		if err != nil {
+			log.Error.Printf("(%d) listener/streamHandler - Could not generate fake requirement: %v\n", connectionID, err)
+			return
+		}
 	} else {
 		requestedDatum = "Requested datum: " + firstMessageRequest.Datum
+
+		requirement, err = nP.GenerateNonRepudiationRequirement()
+		if err != nil {
+			log.Error.Printf("(%d) listener/streamHandler - Could not generate real requirement: %v\n", connectionID, err)
+			return
+		}
 	}
+	privateKey := requirement.GetPrivateKey()
 
 	messageCipher, err := requirement.EncryptMessage([]byte(requestedDatum))
 	if err != nil {
@@ -100,18 +109,20 @@ func streamHandler(rw *bufio.ReadWriter, connectionID int64) {
 		Type:      constants.MessageTypeListener,
 	}
 
+	msgOnlyStart := time.Now()
 	// Create and send signed response
 	responseBytes, err := p2p.CreateSendAndReturnSignedMessage(response, &globalPrivateKey, rw)
 	if err != nil {
 		log.Error.Printf("(%d) listener/streamHandler - Could not send signed first message: %v\n", connectionID, err)
 		return
 	}
+	msgOnlyDuration := time.Since(msgOnlyStart)
 
 	var ack p2p.Acknowledgement
 
 	signedMessage, err = p2p.ReceiveAndVerifySignedMessage(rw, &consumerPublicKey, &ack)
 	if err != nil {
-		log.Error.Printf("(%d) listener/streamHandler - An error occurred when handling the received signed message: %v\n", connectionID, err)
+		log.Error.Printf("(%d) listener/streamHandler - Error handling acknowledgement for the encrypted data: %v\n", connectionID, err)
 		return
 	}
 
@@ -172,14 +183,18 @@ func streamHandler(rw *bufio.ReadWriter, connectionID int64) {
 		currentID++
 	}
 
+	newUsageDuration := time.Since(newUsageStart)
+
 	if !isFakeChatter {
 		log.Info.Printf("(%d) Exchange ended successfully\n", connectionID)
 
+		proofStart := time.Now()
 		err = storage.StoreExchange(signedMessages, &privateKey, &globalPrivateKey.PublicKey)
 		if err != nil {
 			log.Error.Printf("(%d) listener/streamHandler - Could not store data: %v\n", connectionID, err)
 			return
 		}
+		proofDuration := time.Since(proofStart)
 
 		log.Info.Printf("(%d) Storing exchange in SQLite\n", connectionID)
 		exportStart := time.Now()
@@ -191,19 +206,28 @@ func streamHandler(rw *bufio.ReadWriter, connectionID int64) {
 		SQLiteExportDuration := time.Since(exportStart)
 
 		log.Info.Printf("(%d) Storing exchange in blockchain\n", connectionID)
-		exportStart = time.Now()
-		err = storage.ExportToBlockchain(firstMessageRequest.Justification, firstMessageRequest.Datum, &privateKey.PublicKey, &consumerPublicKey)
+		durations, err := storage.ExportToBlockchain(firstMessageRequest.Justification, firstMessageRequest.Datum, &privateKey.PublicKey, &consumerPublicKey)
 		if err != nil {
 			log.Error.Printf("(%d) listener/streamHandler - Could not export data to blockchain: %v\n", connectionID, err)
 			return
 		}
-		blockchainExportDuration := time.Since(exportStart)
 
-		log.Info.Printf("(%d) Exchange export successful.\n\t"+
-			"Duration of entire exchange: %v\n\t"+
-			"Duration of blockchain export: %v\n\t"+
-			"Duration of sqlite export: %v\n",
-			connectionID, time.Since(start), blockchainExportDuration, SQLiteExportDuration,
+		log.Info.Printf("" +
+			fmt.Sprintf("(%d) Exchange summary\n", connectionID) +
+			fmt.Sprintf("\tDuration of entire exchange: %dms\n", time.Since(start).Milliseconds()) +
+			fmt.Sprintf("\tDuration of id verification: %dms\n", idVerificationDuration.Milliseconds()) +
+			// New usage protocol + breakdown
+			fmt.Sprintf("\tDuration of the new-usage protocol: %dms\n", newUsageDuration.Milliseconds()) +
+			fmt.Sprintf("\t\tNumber of rounds: %d\n", requirement.GetRepetitions()) +
+			fmt.Sprintf("\t\tDuration of only sending requested data: %dms\n", msgOnlyDuration.Milliseconds()) +
+			fmt.Sprintf("\t\tDuration of writing proof of non-repudiation: %dms\n", proofDuration.Milliseconds()) +
+			// Exports + blockchain breakdown
+			fmt.Sprintf("\tDuration of SQLite export: %dms\n", SQLiteExportDuration.Milliseconds()) +
+			fmt.Sprintf("\tDuration of blockchain export: %v\n", durations.TotalDuration) +
+			fmt.Sprintf("\t\tDuration of account creation: %v\n", durations.AccountCreation) +
+			fmt.Sprintf("\t\tDuration of account unlock: %v\n", durations.AccountUnlock) +
+			fmt.Sprintf("\t\tDuration of mining: %v\n", durations.Mining) +
+			fmt.Sprintf("\t\tDuration of transaction: %v", durations.TransactionDuration),
 		)
 	}
 }

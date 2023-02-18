@@ -23,7 +23,16 @@ def create_user(email: str, password: str, first_name: str, last_name: str, url:
 		'lastName': last_name
 	}
 
-	return make_post_request(url, request_data, debug=False) is not None
+	resp, ok = make_post_request(url, request_data, debug=False, print_success=False)
+	if ok:
+		return True
+
+	# User with given ID already exists
+	if resp.status_code == 409 and resp.text == "{\"error\":{\"message\":\"user with given ID already exists\"}}":
+		return True
+
+	print(f'! Failure ({resp.status_code}): {resp.text}')
+	return False
 
 
 userAmount = 2

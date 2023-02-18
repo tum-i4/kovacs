@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	// Needed for sqlite3 driver.
 	_ "github.com/mattn/go-sqlite3"
@@ -28,6 +29,7 @@ func ExportToSQLite(justification string, datum string, ownerPublicKey *rsa.Publ
 }
 
 func commitToDB(db *sql.DB, data *BlockchainPayload) error {
+	start := time.Now()
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("node/commitToDB - could not begin transaction: %w", err)
@@ -58,6 +60,12 @@ func commitToDB(db *sql.DB, data *BlockchainPayload) error {
 	if err != nil {
 		return fmt.Errorf("node/commitToDB - could not commit transaction: %w", err)
 	}
+	duration := time.Since(start)
+
+	log.Info.Printf(""+
+		"SQLite export duration: %s",
+		duration,
+	)
 
 	return nil
 }

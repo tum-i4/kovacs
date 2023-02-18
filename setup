@@ -11,7 +11,7 @@ function ask_for_continue {
 		beg=$1
 	fi
 
-	echo 
+	echo
 	echo "$beg may have failed, check output"
 	read -p "Do you still want to continue (y/n)? " cont
 	if [ "$cont" != "y" ] && [ "$cont" != "Y" ]; then
@@ -36,11 +36,13 @@ function append_node_to_compose {
 	cat >> docker-compose.yml<< EOF
     node_$1:
         image: $DOCKER_IMAGE_NAME
+        networks:
+            - kovacs_network
         container_name: inverse_transparency_node_$1
         ports:
             - "304$port:30401"
-            - "400$port:40000"
-            - "410$port:41000"
+            - "500$port:40000"
+            - "510$port:41000"
         environment:
             BOOTNODE_ENODE: \${BOOTNODE_ENODE}
             REVOLORI_TOKEN: \${REVOLORI_TOKEN_$1}
@@ -49,16 +51,30 @@ function append_node_to_compose {
 EOF
 }
 
-function setupEnvAndCompose {
-	echo "Attempting to set up .env"
+function append_network_to_compose {
+	cat >> docker-compose.yml<< EOF
+networks:
+    kovacs_network:
+        name: kovacs_network
+        external: false
+EOF
+}
 
-	user_number=0
-	if [ $# -ge 1 ]; then
-		user_number=$(($1))
-	else
-		read -p "How many users do you want to create? " user_number
-		user_number=$((user_number)) # This accepts not only numbers but arithmetic operations as well
+function print_headline() {
+	if [ $# -ne 1 ]; then
+		echo "print_headline expects 1 argument, got $#"
+		echo "Exiting"
+		exit 1
 	fi
+
+	echo
+	echo "========== $1 =========="
+}
+
+function setupEnvAndCompose {
+	user_number=0
+	read -p "How many users do you want to create? " user_number
+	user_number=$((user_number)) # This accepts not only numbers but arithmetic operations as well
 
 	if [ $user_number -lt 2 ]; then
 		echo "Invalid input!"
@@ -76,7 +92,7 @@ function setupEnvAndCompose {
 	note="IMPORTANT: Replace 127.0.0.1 in the bootnode's enode with use your network IP!"
 
 	# check if $BOOTNODE_ENODE
-	
+
 	bootnode_enode=""
 	if [ -z ${BOOTNODE_ENODE+x} ]; then
 		# Env is not set => read it
@@ -97,17 +113,19 @@ function setupEnvAndCompose {
 
 	printf "\n# Revolori\nREVOLORI_ADDRESS=\"$revolori_address\"\n" >> .env
 
-	echo "Almost done"
+	print_headline "Creating user accounts"
 
 	# create users
-	echo "Attempting to create $user_number users: "
+	printf "Creating $user_number users: "
 	python3 user-management/createUsers.py "$user_number" "$revolori_address"
 	if [ $? -ne 0 ]; then
+		echo
 		ask_for_continue "Creating users"
+	else
+		echo "Done"
 	fi
-	echo
 
-	printf "Attempting to request tokens: "
+	printf "Requesting tokens: "
 	tokens=()
 	for (( i=0; i < $user_number; i++ )); do
 		token=$(python3 user-management/getToken.py "$i" "$revolori_address")
@@ -121,7 +139,7 @@ function setupEnvAndCompose {
 	done
 
 	if [ "${#tokens[@]}" -ne "$user_number" ]; then
-		echo 
+		echo
 		echo "Did not get all reqired tokens"
 		echo "Expected $user_number, got ${#tokens[@]}"
 		echo "Exiting"
@@ -130,7 +148,7 @@ function setupEnvAndCompose {
 
 	echo "Done"
 
-	echo "Writing tokens to .env"
+	printf "Writing tokens to .env: "
 
 	printf "\n# Tokens\n" >> .env
 
@@ -142,8 +160,10 @@ function setupEnvAndCompose {
 	echo "Done"
 
 
+	print_headline "Docker"
+
 	# Create docker-compose.yml
-	printf "Attempting to create docker-compose.yml: "
+	printf "Creating docker-compose.yml: "
 
 	echo "version: \"3.7\"" > docker-compose.yml
 	echo "" >> docker-compose.yml
@@ -152,27 +172,61 @@ function setupEnvAndCompose {
 	for (( i=0; i < ${#tokens[@]}; i++ )); do
 		append_node_to_compose $i
 	done
+	
+	append_network_to_compose
 
 	echo "Done"
 }
 
-
-if [ $# -eq 1 ] && [ $1 = "rebuild" ]; then
-	docker-compose down --remove-orphans
-	docker build . -t $(echo "$DOCKER_IMAGE_NAME")
-
-	if [ $? -eq 0 ]; then
-		docker-compose up -d --build
-		exit 0
+function startContainers {
+	printf "Starting containers: "
+	ret=$(docker-compose up -d --build 2>&1)
+	if [ $? -ne 0 ]; then
+		echo "Failure"
+		echo "$ret"
+		exit 1
 	fi
 
-	exit 1
+	echo "Done"
+}
+
+function stopContainers {
+	printf "Stopping running containers: "
+	ret=$(docker-compose down --remove-orphans 2>&1)
+    if [ $? -ne 0 ]; then
+    	echo "Failure"
+    	echo "$ret"
+    	exit 1
+    fi
+
+    echo "Done"
+}
+
+function buildImage {
+	printf "Building the docker image (this may take some time): "
+
+	ret=$(docker build . -t "$DOCKER_IMAGE_NAME" 2>&1)
+    if [ $? -ne 0 ]; then
+    	echo "Failure"
+    	echo "$ret"
+    	exit 1
+    fi
+
+    echo "Done"
+}
+
+
+if [ $# -eq 1 ] && [ "$1" = "rebuild" ]; then
+	stopContainers
+	buildImage
+	startContainers
+	exit 0
 fi
 
 echo "This script assumes that:"
 printf "\t- Revolori has been pulled from the latest gabriel/master branch\n"
 printf "\t- Revolori is up and running\n"
-printf "\t- That a bootnode is running\n"
+printf "\t- That a bootnode is running (using the bootnode script located in config/)\n"
 printf "\t- That nginx has been configured as a proxi for the bootnode. See config/nginx_bootnode for an example\n"
 printf "\t- Go modules are enabled\n"
 echo
@@ -180,54 +234,38 @@ echo
 read -p "Are all these assumptions true for your system (y/n)? " conf
 if [ "$conf" = "y"  ] || [ "$conf" = "Y"  ]; then
 	echo "Starting setup proccess"
-	echo
 else
 	echo "See README.md on how to set everythin up and come back once it is done"
 	exit 1
 fi
 
 # Stopping exiting containers
-printf "Attemting to stop running containers: "
-ret=$(docker-compose down --remove-orphans)
-if [ $? -ne 0 ]; then
-	echo
-	echo "Could not stop containers:"
-	echo $ret
-	exit 1
-fi
-echo "Done"
-echo
+print_headline "Clean up"
+stopContainers
+
 
 # Check if .env and docker-compose.yml exit
+print_headline "Setting up .env"
 if [ -f ".env" ] || [ -f "docker-compose.yml" ]; then
 	echo ".env or docker-compose.yml already exists"
 	read -p "Do you want to create new configuration files (y/n)? " cont
 	if [ "$cont" = "y" ] || [ "$cont" = "Y" ]; then
 		setupEnvAndCompose
+	else
+		print_headline "Docker"
 	fi
 else
 	setupEnvAndCompose
 fi
 
-echo
-echo "Building the docker image: "
+buildImage
 
-docker build . -t $(echo "$DOCKER_IMAGE_NAME")
-
-if [ $? -ne 0 ]; then
-	echo
-	echo "Docker build failed"
-	echo "This should not have happened"
-	exit 1
-fi
-
-echo
-echo "Setup up successfull"
+echo "Setup up successful"
 
 echo
 read -p "Do you want to run docker-compose up (y/n)? " cont
 if [ "$cont" = "y" ] || [ "$cont" = "Y" ]; then
-	docker-compose up -d --build
+	startContainers
 else
 	echo "Run 'docker-compose up -d --build' when you want to start the containers"
 fi

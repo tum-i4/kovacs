@@ -1,12 +1,11 @@
 import json
-from typing import Optional
 from requests.auth import HTTPBasicAuth
 import requests
 
 default_url_base = 'http://localhost:5429'
 
 
-def make_post_request(url: str, request_data: dict, debug=False, username='admin', print_success=True) -> Optional[requests.Response]:
+def make_post_request(url: str, request_data: dict, debug=False, username='admin', print_success=False) -> (requests.Response, bool):
 	request_data_str = json.dumps(request_data)
 
 	if debug:
@@ -19,10 +18,9 @@ def make_post_request(url: str, request_data: dict, debug=False, username='admin
 		if print_success:
 			print(f'Success: {resp.text}')
 
-		return resp
+		return resp, True
 
 	if username == 'admin':
 		return make_post_request(url=url, request_data=request_data, debug=debug, username="user")
 
-	print(f'! Failure ({resp.status_code}): {resp.text}')
-	return None
+	return resp, False

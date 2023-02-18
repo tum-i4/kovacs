@@ -72,6 +72,11 @@ linters:
         - cyclop
         - gocyclo
         - dupl
+        - varcheck
+        - deadcode
+        - ifshort
+        - nosnakecase
+        - structcheck
     enable-all: true
     fast: false
 

@@ -13,10 +13,21 @@ if [ $1 -lt 2 ]; then
 fi
 
 additionalFlags=""
+bigNetwork=0
+fakeChatter=0
+i=0
 for arg in "$@"
 do
+	if [ $i -eq 0 ]; then
+		# Skip the first parameter, which is the number of runs
+		i=1
+		continue
+	fi
+
+
 	if [ "$arg" = "fakeChatter" ]; then
 		echo "Enabled fake chatter"
+		fakeChatter=1
 	    additionalFlags="$additionalFlags -fakeChatter=true"
 	elif [ "$arg" = "cpu" ]; then
 		echo "Enabled cpu profiling"
@@ -24,27 +35,79 @@ do
 	elif [ "$arg" = "mem" ]; then
 		echo "Enabled memory profiling"
 		additionalFlags="$additionalFlags -memProf=true"
+	elif [ "$arg" = "bigNetwork" ]; then
+		echo "Running with a big network => Sleep after exchange enabled"
+		bigNetwork=1
+	else
+		echo "Invalid argument '$arg'"
+		echo "Exiting"
+		exit 1
 	fi
 done
 
+# Rename the existing log
+name=$(date '+%Y-%m-%d_%H:%M:%S')
+if [ -f "InverseTransparency.log" ]; then
+	mv InverseTransparency.log "$name-InverseTransparency.log"
+fi
+
 echo "Running requester for $1 times"
 
-for i in `seq 1 $1`
+i=0
+exit_error=0
+grep_error=0
+while true
 do
+	if [ $i -eq $1 ]; then
+		break
+	fi	
+	
 	printf "Run $i: "
 
 	datum="Datum $i"
 	./requester -ssoid "user1@example.com" -datum "$datum" -justification "Justification for $datum" $additionalFlags >/dev/null
 	if [ $? -ne 0 ]; then
-		echo "Exit code indicates failure"
-		exit 1
+		echo "Exit code indicates failure!"
+		exit_error=$((exit_error+1))
+		tmp=$(date +%s)
+		mv InverseTransparency.log "$tmp-InverseTransparency.log"
+		sleep 5s
+		continue
 	fi
 
+	# Check if the datum is what we expected
 	grep -q "Successfully completed; Message is: 'Requested datum: $datum'" InverseTransparency.log
 	if [ $? -ne 0 ]; then
-		echo "grep did not find the expected message '$datum'"
+		echo "grep did not find the expected message '$datum'!"
+		tmp=$(date +%s)
+		mv InverseTransparency.log "$tmp-InverseTransparency.log"
+		grep_error=$((grep_error+1))
+		sleep 5s
+		continue
+	fi
+
+	i=$((i+1))
+
+	# Check if we have the right number of exchange summaries
+	summaries=$(grep -c "Exchange summary" InverseTransparency.log)
+	if [ "$summaries" -ne "$i" ]; then
+		echo "I have a mismatch between expected summaries ($i) and actual summaries ($summaries)!"
 		exit 1
 	fi
 
 	echo "Done"
+	
+	if [ $bigNetwork -eq 1 ] && [ $fakeChatter  -eq 1 ]; then
+		sleep 5s
+	elif [ $bigNetwork -eq 1 ]; then
+		sleep 2s
+	fi
 done
+
+if [ $grep_error -gt 0 ]; then
+	echo "Grep encountered $grep_error errors"
+fi
+if [ $exit_error -gt 0 ]; then
+	echo "$exit_error exit codes indicated failure"
+fi
+

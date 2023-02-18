@@ -82,7 +82,7 @@ func LoadExchange(path string) ([]p2p.SignedMessage, rsa.PrivateKey, rsa.PublicK
 	}
 
 	if len(exchange.Messages) < 3 {
-		return nil, rsa.PrivateKey{}, rsa.PublicKey{}, fmt.Errorf("node.Load - Too little messages were found: %w", err)
+		return nil, rsa.PrivateKey{}, rsa.PublicKey{}, fmt.Errorf("node.Load - Too little messages were found")
 	}
 
 	return exchange.Messages, exchange.PrivateKey, exchange.PublicIdentityKey, nil
